@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Змейка (кнопки скорости)</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #F5F5DC;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            user-select: none;
+        }
+        .header {
+            width: 860px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .info {
+            font-size: 18px;
+            color: #333;
+        }
+        .speed {
+            color: #00AA00;
+            font-weight: bold;
+        }
+        .game-btns {
+            display: flex;
+            gap: 10px;
+        }
+        .pause-btn, .menu-btn {
+            padding: 8px 16px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .pause-btn {
+            background: #FF6B6B;
+            color: white;
+        }
+        .pause-btn:hover { background: #FF5252; }
+        .pause-btn.paused { background: #4CAF50; }
+        .pause-btn.paused:hover { background: #45a049; }
+        .menu-btn {
+            background: #2196F3;
+            color: white;
+        }
+        .menu-btn:hover { background: #1976D2; }
+        
+        canvas {
+            border: 3px solid #8B4513;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            cursor: pointer;
+        }
+        .game-over {
+            color: #FF4444;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+            text-align: center;
+        }
+        .speed-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 10px;
+            border: 2px solid #8B4513;
+        }
+        .speed-btn {
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .speed-minus {
+            background: #FF9800;
+            color: white;
+        }
+        .speed-minus:hover {
+            background: #F57C00;
+            transform: scale(1.1);
+        }
+        .speed-plus {
+            background: #4CAF50;
+            color: white;
+        }
+        .speed-plus:hover {
+            background: #45a049;
+            transform: scale(1.1);
+        }
+        .header.hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="header" id="header">
+        <div class="info">
+            Счёт: <span id="score">0</span> | 
+            Скорость: <span id="speed" class="speed">🐌 Медленная</span>
+        </div>
+        <div class="game-btns">
+            <button class="pause-btn" id="pauseBtn">⏸️ Пауза</button>
+            <button class="menu-btn" id="menuBtn">🏠 Меню</button>
+        </div>
+    </div>
+    
+    <div style="position: relative; width: 800px; height: 600px;">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <!-- 🆕 КНОПКИ СКОРОСТИ в правом нижнем углу -->
+        <div class="speed-controls" id="speedControls">
+            <button class="speed-btn speed-minus" id="speedMinus">-</button>
+            <button class="speed-btn speed-plus" id="speedPlus">+</button>
+        </div>
+    </div>
+    
+    <div id="gameOver" class="game-over" style="display: none;">💥 Столкновение со стеной! Игра перезапущена!</div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const header = document.getElementById('header');
+        const scoreElement = document.getElementById('score');
+        const speedElement = document.getElementById('speed');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const menuBtn = document.getElementById('menuBtn');
+        const speedMinusBtn = document.getElementById('speedMinus');
+        const speedPlusBtn = document.getElementById('speedPlus');
+        const gameOverElement = document.getElementById('gameOver');
+        const speedControls = document.getElementById('speedControls');
+
+        // Константы
+        const PIXEL_SIZE = 11;
+        const WINDOW_WIDTH = 800;
+        const WINDOW_HEIGHT = 600;
+        const BEIGE = '#F5F5DC';
+        const WHITE = '#FFFFFF';
+        const RED = '#FF0000';
+        const BLACK = '#000000';
+        const BROWN = '#8B4513';
+
+        // Состояние
+        let currentScreen = 'main';
+        let gameState = {
+            snake: [{x: 44, y: 33}],
+            direction: {x: 1, y: 0},
+            food: {x: 22, y: 22},
+            score: 0,
+            speedLevel: 0,
+            lastMoveTime: 0,
+            gameRunning: true,
+            snakeColor: '#00FF00'
+        };
+        const SPEED_LEVELS = [400, 300, 200, 150, 100, 50, 20]; // 🆕 7 уровней!
+        const SPEED_TEXTS = ['🐌 Очень медленная', '🐌 Медленная', '🐍 Нормальная', '⚡ Быстрая', '🚀 Очень быстрая', '💨 Максимальная', '🔥 Турбо'];
+
+        const COLORS = ['#00FF00', '#FF00FF', '#00FFFF', '#FFFF00', '#FF6600', '#FF1493'];
+
+        // Рисование главного меню
+        function drawMainMenu() {
+            ctx.fillStyle = BEIGE;
+            ctx.fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+            
+            ctx.fillStyle = BLACK;
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🐍 ЗМЕЙКА', WINDOW_WIDTH/2, 150);
+            
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(250, 250, 300, 80);
+            ctx.fillStyle = WHITE;
+            ctx.font = 'bold 32px Arial';
+            ctx.fillText('▶️ ИГРАТЬ', WINDOW_WIDTH/2, 300);
+            
+            ctx.fillStyle = '#2196F3';
+            ctx.fillRect(250, 360, 300, 80);
+            ctx.fillStyle = WHITE;
+            ctx.fillText('🎨 ВИД', WINDOW_WIDTH/2, 410);
+        }
+
+        // Рисование экрана выбора цвета
+        function drawColorScreen() {
+            ctx.fillStyle = WHITE;
+            ctx.fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+            
+            ctx.fillStyle = BLACK;
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🎨 ВЫБЕРИ ЦВET', WINDOW_WIDTH/2, 100);
+            
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('Палитра:', 50, 180);
+            
+            COLORS.forEach((color, i) => {
+                const y = 220 + i * 70;
+                ctx.fillStyle = color;
+                ctx.fillRect(50, y, 60, 60);
+                ctx.strokeStyle = gameState.snakeColor === color ? BLACK : '#ddd';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(50, y, 60, 60);
+            });
+            
+            ctx.fillStyle = '#FF6B6B';
+            ctx.fillRect(50, 500, 200, 60);
+            ctx.fillStyle = WHITE;
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🔙 НАЗАД', 150, 535);
+            
+            ctx.fillStyle = BEIGE;
+            ctx.fillRect(500, 150, 250, 400);
+            ctx.strokeStyle = BROWN;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(500, 150, 250, 400);
+            
+            ctx.fillStyle = gameState.snakeColor;
+            gameState.snake.forEach(segment => {
+                ctx.fillRect(520 + segment.x * 0.3, 170 + segment.y * 0.3, 8, 8);
+            });
+            
+            ctx.fillStyle = BLACK;
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Превью:', 625, 180);
+        }
+
+        function isButtonClicked(x, y, btnX, btnY, btnW, btnH) {
+            return x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH;
+        }
+
+        // Обработка кликов
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            if (currentScreen === 'main') {
+                if (isButtonClicked(x, y, 250, 250, 300, 80)) {
+                    currentScreen = 'game';
+                    header.classList.remove('hidden');
+                    speedControls.style.display = 'flex';
+                    gameState.gameRunning = true;
+                    generateFood();
+                }
+                if (isButtonClicked(x, y, 250, 360, 300, 80)) {
+                    currentScreen = 'color';
+                }
+            } 
+            else if (currentScreen === 'color') {
+                COLORS.forEach((color, i) => {
+                    const colorY = 220 + i * 70;
+                    if (isButtonClicked(x, y, 50, colorY, 60, 60)) {
+                        gameState.snakeColor = color;
+                    }
+                });
+                if (isButtonClicked(x, y, 50, 500, 200, 60)) {
+                    currentScreen = 'main';
+                }
+            }
+            requestAnimationFrame(gameLoop);
+        });
+
+        // 🆕 КНОПКИ СКОРОСТИ
+        speedMinusBtn.addEventListener('click', () => {
+            if (currentScreen === 'game') {
+                gameState.speedLevel = Math.max(0, gameState.speedLevel - 1);
+                speedElement.textContent = SPEED_TEXTS[gameState.speedLevel];
+            }
+        });
+
+        speedPlusBtn.addEventListener('click', () => {
+            if (currentScreen === 'game') {
+                gameState.speedLevel = Math.min(SPEED_LEVELS.length - 1, gameState.speedLevel + 1);
+                speedElement.textContent = SPEED_TEXTS[gameState.speedLevel];
+            }
+        });
+
+        // Остальные функции без изменений
+        function generateFood() {
+            gameState.food.x = Math.floor(Math.random() * (WINDOW_WIDTH / PIXEL_SIZE)) * PIXEL_SIZE;
+            gameState.food.y = Math.floor(Math.random() * (WINDOW_HEIGHT / PIXEL_SIZE)) * PIXEL_SIZE;
+            if (gameState.snake.some(segment => segment.x === gameState.food.x && segment.y === gameState.food.y)) {
+                generateFood();
+            }
+        }
+
+        function checkWallCollision(head) {
+            return head.x < 0 || head.x >= WINDOW_WIDTH || head.y < 0 || head.y >= WINDOW_HEIGHT;
+        }
+
+        function isClickOnSnake(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = clientX - rect.left;
+            const clickY = clientY - rect.top;
+            return gameState.snake.some(segment => 
+                clickX >= segment.x && clickX <= segment.x + PIXEL_SIZE &&
+                clickY >= segment.y && clickY <= segment.y + PIXEL_SIZE
+            );
+        }
+
+        function restartGame() {
+            gameState = {
+                snake: [{x: 44, y: 33}],
+                direction: {x: 1, y: 0},
+                food: {x: 22, y: 22},
+                score: 0,
+                speedLevel: 0,
+                lastMoveTime: 0,
+                gameRunning: true,
+                snakeColor: gameState.snakeColor
+            };
+            scoreElement.textContent = 0;
+            speedElement.textContent = SPEED_TEXTS[0];
+            gameOverElement.style.display = 'block';
+            setTimeout(() => { gameOverElement.style.display = 'none'; }, 2000);
+        }
+
+        function moveSnake() {
+            const head = {x: gameState.snake[0].x, y: gameState.snake[0].y};
+            head.x += gameState.direction.x * PIXEL_SIZE;
+            head.y += gameState.direction.y * PIXEL_SIZE;
+
+            if (checkWallCollision(head)) {
+                restartGame();
+                return;
+            }
+
+            gameState.snake.unshift(head);
+
+            if (head.x === gameState.food.x && head.y === gameState.food.y) {
+                gameState.score += 1;
+                scoreElement.textContent = gameState.score;
+                generateFood();
+            } else {
+                if (gameState.snake.length > gameState.score * 2 + 3) {
+                    gameState.snake.pop();
+                }
+            }
+        }
+
+        function drawGame() {
+            ctx.fillStyle = BEIGE;
+            ctx.fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+            ctx.fillStyle = gameState.snakeColor;
+            gameState.snake.forEach(segment => {
+                ctx.fillRect(segment.x, segment.y, PIXEL_SIZE, PIXEL_SIZE);
+            });
+
+            ctx.fillStyle = RED;
+            ctx.fillRect(gameState.food.x, gameState.food.y, PIXEL_SIZE, PIXEL_SIZE);
+
+            ctx.strokeStyle = BROWN;
+            ctx.lineWidth = 5;
+            ctx.strokeRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (currentScreen !== 'game' || !gameState.gameRunning) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const headX = gameState.snake[0].x + PIXEL_SIZE / 2;
+            const headY = gameState.snake[0].y + PIXEL_SIZE / 2;
+            const dx = mouseX - headX;
+            const dy = mouseY - headY;
+            if (Math.abs(dx) > Math.abs(dy)) {
+                gameState.direction = dx > 0 ? {x: 1, y: 0} : {x: -1, y: 0};
+            } else {
+                gameState.direction = dy > 0 ? {x: 0, y: 1} : {x: 0, y: -1};
+            }
+        });
+
+        canvas.addEventListener('click', (e) => {
+            if (currentScreen === 'game' && gameState.gameRunning && isClickOnSnake(e.clientX, e.clientY)) {
+                gameState.speedLevel = Math.min(SPEED_LEVELS.length - 1, gameState.speedLevel + 1);
+                speedElement.textContent = SPEED_TEXTS[gameState.speedLevel];
+                canvas.style.borderColor = '#00FF00';
+                setTimeout(() => { canvas.style.borderColor = BROWN; }, 200);
+            }
+        });
+
+        pauseBtn.addEventListener('click', () => {
+            if (currentScreen !== 'game') return;
+            gameState.gameRunning = !gameState.gameRunning;
+            pauseBtn.textContent = gameState.gameRunning ? '⏸️ Пауза' : '▶️ Продолжить';
+            pauseBtn.classList.toggle('paused');
+        });
+
+        menuBtn.addEventListener('click', () => {
+            if (currentScreen !== 'game') return;
+            currentScreen = 'main';
+            header.classList.add('hidden');
+            speedControls.style.display = 'none';
+        });
+
+        // Главный цикл
+        function gameLoop(currentTime) {
+            if (currentScreen === 'main') {
+                drawMainMenu();
+                header.classList.add('hidden');
+                speedControls.style.display = 'none';
+            } else if (currentScreen === 'color') {
+                drawColorScreen();
+                header.classList.add('hidden');
+                speedControls.style.display = 'none';
+            } else if (currentScreen === 'game') {
+                header.classList.remove('hidden');
+                speedControls.style.display = 'flex';
+                if (gameState.gameRunning && currentTime - gameState.lastMoveTime > SPEED_LEVELS[gameState.speedLevel]) {
+                    moveSnake();
+                    gameState.lastMoveTime = currentTime;
+                }
+                drawGame();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

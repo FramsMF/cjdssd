@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Змейка (кнопки скорости)</title>
+    <title>Змейка (кнопки скорости + безопасное яблоко)</title>
     <style>
         body {
             margin: 0;
@@ -126,7 +126,6 @@
     <div style="position: relative; width: 800px; height: 600px;">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         
-        <!-- 🆕 КНОПКИ СКОРОСТИ в правом нижнем углу -->
         <div class="speed-controls" id="speedControls">
             <button class="speed-btn speed-minus" id="speedMinus">-</button>
             <button class="speed-btn speed-plus" id="speedPlus">+</button>
@@ -152,15 +151,12 @@
         const PIXEL_SIZE = 11;
         const WINDOW_WIDTH = 800;
         const WINDOW_HEIGHT = 600;
+        const SAFE_MARGIN = 2 * PIXEL_SIZE; // 🆕 Безопасное расстояние от стен (2 пикселя)
         const BEIGE = '#F5F5DC';
         const WHITE = '#FFFFFF';
         const RED = '#FF0000';
         const BLACK = '#000000';
         const BROWN = '#8B4513';
-
-        // 🆕 Максимальное количество пикселей (исключая стены)
-        const MAX_COLS = Math.floor((WINDOW_WIDTH - 2) / PIXEL_SIZE);
-        const MAX_ROWS = Math.floor((WINDOW_HEIGHT - 2) / PIXEL_SIZE);
 
         // Состояние
         let currentScreen = 'main';
@@ -174,24 +170,30 @@
             gameRunning: true,
             snakeColor: '#00FF00'
         };
-        const SPEED_LEVELS = [400, 300, 200, 150, 100, 50, 20]; // 🆕 7 уровней!
+        const SPEED_LEVELS = [400, 300, 200, 150, 100, 50, 20];
         const SPEED_TEXTS = ['🐌 Очень медленная', '🐌 Медленная', '🐍 Нормальная', '⚡ Быстрая', '🚀 Очень быстрая', '💨 Максимальная', '🔥 Турбо'];
 
         const COLORS = ['#00FF00', '#FF00FF', '#00FFFF', '#FFFF00', '#FF6600', '#FF1493'];
 
-        // 🆕 Улучшенная функция генерации еды (гарантирует расстояние от стен минимум 1 пиксель)
+        // 🆕 УЛУЧШЕННАЯ ФУНКЦИЯ ГЕНЕРАЦИИ ЯБЛОКА
         function generateFood() {
             let attempts = 0;
-            do {
-                gameState.food.x = Math.floor(Math.random() * MAX_COLS) * PIXEL_SIZE;
-                gameState.food.y = Math.floor(Math.random() * MAX_ROWS) * PIXEL_SIZE;
-                attempts++;
-            } while (gameState.snake.some(segment => segment.x === gameState.food.x && segment.y === gameState.food.y) && attempts < 100);
+            const maxGridX = Math.floor((WINDOW_WIDTH - SAFE_MARGIN * 2) / PIXEL_SIZE);
+            const maxGridY = Math.floor((WINDOW_HEIGHT - SAFE_MARGIN * 2) / PIXEL_SIZE);
             
-            // Если не удалось найти место за 100 попыток, используем простую генерацию
+            do {
+                gameState.food.x = SAFE_MARGIN + 
+                    Math.floor(Math.random() * maxGridX) * PIXEL_SIZE;
+                gameState.food.y = SAFE_MARGIN + 
+                    Math.floor(Math.random() * maxGridY) * PIXEL_SIZE;
+                attempts++;
+            } while (gameState.snake.some(segment => 
+                segment.x === gameState.food.x && segment.y === gameState.food.y
+            ) && attempts < 100);
+
+            // Если не нашли место после 100 попыток, очищаем область
             if (attempts >= 100) {
-                gameState.food.x = Math.floor(Math.random() * MAX_COLS) * PIXEL_SIZE;
-                gameState.food.y = Math.floor(Math.random() * MAX_ROWS) * PIXEL_SIZE;
+                console.warn('Не удалось найти место для еды, используется случайная позиция');
             }
         }
 
@@ -300,7 +302,7 @@
             requestAnimationFrame(gameLoop);
         });
 
-        // 🆕 КНОПКИ СКОРОСТИ
+        // Кнопки скорости
         speedMinusBtn.addEventListener('click', () => {
             if (currentScreen === 'game') {
                 gameState.speedLevel = Math.max(0, gameState.speedLevel - 1);
@@ -316,8 +318,7 @@
         });
 
         function checkWallCollision(head) {
-            return head.x < PIXEL_SIZE || head.x >= WINDOW_WIDTH - PIXEL_SIZE || 
-                   head.y < PIXEL_SIZE || head.y >= WINDOW_HEIGHT - PIXEL_SIZE;
+            return head.x < 0 || head.x >= WINDOW_WIDTH || head.y < 0 || head.y >= WINDOW_HEIGHT;
         }
 
         function isClickOnSnake(clientX, clientY) {

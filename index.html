@@ -158,6 +158,10 @@
         const BLACK = '#000000';
         const BROWN = '#8B4513';
 
+        // 🆕 Максимальное количество пикселей (исключая стены)
+        const MAX_COLS = Math.floor((WINDOW_WIDTH - 2) / PIXEL_SIZE);
+        const MAX_ROWS = Math.floor((WINDOW_HEIGHT - 2) / PIXEL_SIZE);
+
         // Состояние
         let currentScreen = 'main';
         let gameState = {
@@ -174,6 +178,22 @@
         const SPEED_TEXTS = ['🐌 Очень медленная', '🐌 Медленная', '🐍 Нормальная', '⚡ Быстрая', '🚀 Очень быстрая', '💨 Максимальная', '🔥 Турбо'];
 
         const COLORS = ['#00FF00', '#FF00FF', '#00FFFF', '#FFFF00', '#FF6600', '#FF1493'];
+
+        // 🆕 Улучшенная функция генерации еды (гарантирует расстояние от стен минимум 1 пиксель)
+        function generateFood() {
+            let attempts = 0;
+            do {
+                gameState.food.x = Math.floor(Math.random() * MAX_COLS) * PIXEL_SIZE;
+                gameState.food.y = Math.floor(Math.random() * MAX_ROWS) * PIXEL_SIZE;
+                attempts++;
+            } while (gameState.snake.some(segment => segment.x === gameState.food.x && segment.y === gameState.food.y) && attempts < 100);
+            
+            // Если не удалось найти место за 100 попыток, используем простую генерацию
+            if (attempts >= 100) {
+                gameState.food.x = Math.floor(Math.random() * MAX_COLS) * PIXEL_SIZE;
+                gameState.food.y = Math.floor(Math.random() * MAX_ROWS) * PIXEL_SIZE;
+            }
+        }
 
         // Рисование главного меню
         function drawMainMenu() {
@@ -295,17 +315,9 @@
             }
         });
 
-        // Остальные функции без изменений
-        function generateFood() {
-            gameState.food.x = Math.floor(Math.random() * (WINDOW_WIDTH / PIXEL_SIZE)) * PIXEL_SIZE;
-            gameState.food.y = Math.floor(Math.random() * (WINDOW_HEIGHT / PIXEL_SIZE)) * PIXEL_SIZE;
-            if (gameState.snake.some(segment => segment.x === gameState.food.x && segment.y === gameState.food.y)) {
-                generateFood();
-            }
-        }
-
         function checkWallCollision(head) {
-            return head.x < 0 || head.x >= WINDOW_WIDTH || head.y < 0 || head.y >= WINDOW_HEIGHT;
+            return head.x < PIXEL_SIZE || head.x >= WINDOW_WIDTH - PIXEL_SIZE || 
+                   head.y < PIXEL_SIZE || head.y >= WINDOW_HEIGHT - PIXEL_SIZE;
         }
 
         function isClickOnSnake(clientX, clientY) {

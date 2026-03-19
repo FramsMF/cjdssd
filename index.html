@@ -134,7 +134,12 @@
     
     <div id="gameOver" class="game-over" style="display: none;">💥 Столкновение со стеной! Игра перезапущена!</div>
 
-    <!-- 🆕 ЗВУК СМЕРТИ -->
+    <!-- 🎵 ФОНОВАЯ МУЗЫКА -->
+    <audio id="bgMusic" preload="auto" loop>
+        <source src="фоновая музыка 1.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- 🎵 ЗВУК СМЕРТИ -->
     <audio id="deathSound" preload="auto">
         <source src="смерть.mp3" type="audio/mpeg">
     </audio>
@@ -152,8 +157,9 @@
         const gameOverElement = document.getElementById('gameOver');
         const speedControls = document.getElementById('speedControls');
         
-        // 🆕 ЗВУК СМЕРТИ
-        const deathSound = document.getElementById('deathSound');
+        // 🎵 Аудио
+        const bgMusic = document.getElementById('bgMusic'); // фоновая музыка
+        const deathSound = document.getElementById('deathSound'); // звук смерти
 
         // Константы
         const PIXEL_SIZE = 11;
@@ -286,6 +292,11 @@
                     speedControls.style.display = 'flex';
                     gameState.gameRunning = true;
                     generateFood();
+                    // 🎵 ЗАПУСК ФОНОВОЙ МУЗЫКИ ПРИ ПЕРЕХОДЕ В ИГРУ
+                    bgMusic.currentTime = 0;
+                    bgMusic.play().catch(e => {
+                        console.log('Фоновая музыка не воспроизведена:', e);
+                    });
                 }
                 if (isButtonClicked(x, y, 250, 360, 300, 80)) {
                     currentScreen = 'color';
@@ -300,6 +311,8 @@
                 });
                 if (isButtonClicked(x, y, 50, 500, 200, 60)) {
                     currentScreen = 'main';
+                    // 🎵 ОСТАНАВЛИВАЕМ МУЗЫКУ ПРИ ВОЗВРАТЕ В МЕНЮ
+                    bgMusic.pause();
                 }
             }
             requestAnimationFrame(gameLoop);
@@ -333,7 +346,6 @@
             );
         }
 
-        // 🆕 ФУНКЦИЯ ВОСПРОИЗВЕДЕНИЯ ЗВУКА СМЕРТИ
         function playDeathSound() {
             deathSound.currentTime = 0;
             deathSound.play().catch(e => {
@@ -342,7 +354,6 @@
         }
 
         function restartGame() {
-            // 🆕 ВОСПРОИЗВЕДЕНИЕ ЗВУКА ПРИ СТОЛКНОВЕНИИ
             playDeathSound();
             
             gameState = {
@@ -430,38 +441,4 @@
             if (currentScreen !== 'game') return;
             gameState.gameRunning = !gameState.gameRunning;
             pauseBtn.textContent = gameState.gameRunning ? '⏸️ Пауза' : '▶️ Продолжить';
-            pauseBtn.classList.toggle('paused');
-        });
-
-        menuBtn.addEventListener('click', () => {
-            if (currentScreen !== 'game') return;
-            currentScreen = 'main';
-            header.classList.add('hidden');
-            speedControls.style.display = 'none';
-        });
-
-        function gameLoop(currentTime) {
-            if (currentScreen === 'main') {
-                drawMainMenu();
-                header.classList.add('hidden');
-                speedControls.style.display = 'none';
-            } else if (currentScreen === 'color') {
-                drawColorScreen();
-                header.classList.add('hidden');
-                speedControls.style.display = 'none';
-            } else if (currentScreen === 'game') {
-                header.classList.remove('hidden');
-                speedControls.style.display = 'flex';
-                if (gameState.gameRunning && currentTime - gameState.lastMoveTime > SPEED_LEVELS[gameState.speedLevel]) {
-                    moveSnake();
-                    gameState.lastMoveTime = currentTime;
-                }
-                drawGame();
-            }
-            requestAnimationFrame(gameLoop);
-        }
-
-        requestAnimationFrame(gameLoop);
-    </script>
-</body>
-</html>
+            pauseBtn.classList.toggle

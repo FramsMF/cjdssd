@@ -134,6 +134,11 @@
     
     <div id="gameOver" class="game-over" style="display: none;">💥 Столкновение со стеной! Игра перезапущена!</div>
 
+    <!-- 🆕 ЗВУК СМЕРТИ -->
+    <audio id="deathSound" preload="auto">
+        <source src="смерть.mp3" type="audio/mpeg">
+    </audio>
+
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -146,12 +151,15 @@
         const speedPlusBtn = document.getElementById('speedPlus');
         const gameOverElement = document.getElementById('gameOver');
         const speedControls = document.getElementById('speedControls');
+        
+        // 🆕 ЗВУК СМЕРТИ
+        const deathSound = document.getElementById('deathSound');
 
         // Константы
         const PIXEL_SIZE = 11;
         const WINDOW_WIDTH = 800;
         const WINDOW_HEIGHT = 600;
-        const SAFE_MARGIN = 2 * PIXEL_SIZE; // 🆕 Безопасное расстояние от стен (2 пикселя)
+        const SAFE_MARGIN = 2 * PIXEL_SIZE;
         const BEIGE = '#F5F5DC';
         const WHITE = '#FFFFFF';
         const RED = '#FF0000';
@@ -175,7 +183,6 @@
 
         const COLORS = ['#00FF00', '#FF00FF', '#00FFFF', '#FFFF00', '#FF6600', '#FF1493'];
 
-        // 🆕 УЛУЧШЕННАЯ ФУНКЦИЯ ГЕНЕРАЦИИ ЯБЛОКА
         function generateFood() {
             let attempts = 0;
             const maxGridX = Math.floor((WINDOW_WIDTH - SAFE_MARGIN * 2) / PIXEL_SIZE);
@@ -191,13 +198,11 @@
                 segment.x === gameState.food.x && segment.y === gameState.food.y
             ) && attempts < 100);
 
-            // Если не нашли место после 100 попыток, очищаем область
             if (attempts >= 100) {
                 console.warn('Не удалось найти место для еды, используется случайная позиция');
             }
         }
 
-        // Рисование главного меню
         function drawMainMenu() {
             ctx.fillStyle = BEIGE;
             ctx.fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -219,7 +224,6 @@
             ctx.fillText('🎨 ВИД', WINDOW_WIDTH/2, 410);
         }
 
-        // Рисование экрана выбора цвета
         function drawColorScreen() {
             ctx.fillStyle = WHITE;
             ctx.fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -270,7 +274,6 @@
             return x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH;
         }
 
-        // Обработка кликов
         canvas.addEventListener('click', (e) => {
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
@@ -302,7 +305,6 @@
             requestAnimationFrame(gameLoop);
         });
 
-        // Кнопки скорости
         speedMinusBtn.addEventListener('click', () => {
             if (currentScreen === 'game') {
                 gameState.speedLevel = Math.max(0, gameState.speedLevel - 1);
@@ -331,7 +333,18 @@
             );
         }
 
+        // 🆕 ФУНКЦИЯ ВОСПРОИЗВЕДЕНИЯ ЗВУКА СМЕРТИ
+        function playDeathSound() {
+            deathSound.currentTime = 0;
+            deathSound.play().catch(e => {
+                console.log('Звук не воспроизведен:', e);
+            });
+        }
+
         function restartGame() {
+            // 🆕 ВОСПРОИЗВЕДЕНИЕ ЗВУКА ПРИ СТОЛКНОВЕНИИ
+            playDeathSound();
+            
             gameState = {
                 snake: [{x: 44, y: 33}],
                 direction: {x: 1, y: 0},
@@ -427,7 +440,6 @@
             speedControls.style.display = 'none';
         });
 
-        // Главный цикл
         function gameLoop(currentTime) {
             if (currentScreen === 'main') {
                 drawMainMenu();
